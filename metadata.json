@@ -1,0 +1,9 @@
+{
+  "name": "Remix: Mango AI ",
+  "description": "Advanced multi-modal intelligent assistant with full Android-style phone control via voice, camera vision, and smart automation.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ],
+  "majorCapabilities": []
+}

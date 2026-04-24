@@ -1,0 +1,43 @@
+{
+  "entities": {
+    "Conversation": {
+      "title": "Conversation",
+      "description": "A chat session between a user and the AI.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "description": "The auto-generated title of the conversation." },
+        "userId": { "type": "string", "description": "The ID of the user who owns this conversation." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the conversation was created." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "When the conversation was last updated." },
+        "isPublic": { "type": "boolean", "description": "Optional flag indicating if the chat is public." },
+        "deleted": { "type": "boolean", "description": "Optional flag to mark the conversation as deleted." }
+      },
+      "required": ["title", "userId", "createdAt", "updatedAt"]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "A single message within a conversation.",
+      "type": "object",
+      "properties": {
+        "conversationId": { "type": "string", "description": "The ID of the parent conversation." },
+        "role": { "type": "string", "enum": ["user", "assistant"], "description": "The role of the message sender." },
+        "content": { "type": "string", "description": "The text content of the message." },
+        "image": { "type": "string", "description": "Optional base64 image data." },
+        "generatedImage": { "type": "string", "description": "Optional URL to generated image." },
+        "generatedVideo": { "type": "string", "description": "Optional URL to generated video." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the message was sent." }
+      },
+      "required": ["conversationId", "role", "content", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/conversations/{conversationId}": {
+      "schema": "Conversation",
+      "description": "Collection of user chat sessions."
+    },
+    "/conversations/{conversationId}/messages/{messageId}": {
+      "schema": "Message",
+      "description": "Sub-collection of messages for a specific conversation."
+    }
+  }
+}

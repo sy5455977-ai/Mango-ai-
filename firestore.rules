@@ -1,0 +1,94 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function isSignedIn() { return request.auth != null; }
+
+    // Conversation Blueprint
+    function isValidConversation(data) {
+      return data.keys().hasAll(['title', 'userId', 'createdAt', 'updatedAt']) 
+        && data.size() >= 4 && data.size() <= 6
+        && data.title is string && data.title.size() <= 200
+        && data.userId == request.auth.uid
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp
+        && (data.get('isPublic', false) is bool)
+        && (data.get('deleted', false) is bool);
+    }
+
+    // Message Blueprint
+    function isValidMessage(data) {
+      return data.keys().hasAll(['conversationId', 'role', 'content', 'createdAt'])
+        && data.size() >= 4 && data.size() <= 7
+        && data.conversationId is string && data.conversationId.size() <= 128
+        && data.role in ['user', 'assistant']
+        && data.content is string && data.content.size() <= 50000
+        && data.createdAt is timestamp
+        && (data.get('image', null) == null || data.image is string && data.image.size() <= 2000000)
+        && (data.get('generatedImage', null) == null || data.generatedImage is string && data.generatedImage.size() <= 2000)
+        && (data.get('generatedVideo', null) == null || data.generatedVideo is string && data.generatedVideo.size() <= 2000);
+    }
+
+    match /conversations/{conversationId} {
+      allow get: if isSignedIn() && isValidId(conversationId) && existing().userId == request.auth.uid;
+      allow list: if isSignedIn() && existing().userId == request.auth.uid;
+      
+      allow create: if isSignedIn() 
+        && isValidId(conversationId)
+        && isValidConversation(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+        
+      allow update: if isSignedIn() 
+        && isValidId(conversationId)
+        && existing().userId == request.auth.uid
+        && isValidConversation(incoming())
+        && incoming().userId == existing().userId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'updatedAt', 'isPublic', 'deleted']);
+        
+      allow delete: if isSignedIn() && isValidId(conversationId) && existing().userId == request.auth.uid;
+
+      match /messages/{messageId} {
+        allow get: if isSignedIn() 
+          && isValidId(conversationId) 
+          && isValidId(messageId) 
+          && get(/databases/$(database)/documents/conversations/$(conversationId)).data.userId == request.auth.uid;
+          
+        allow list: if isSignedIn() 
+          && isValidId(conversationId)
+          && get(/databases/$(database)/documents/conversations/$(conversationId)).data.userId == request.auth.uid;
+          
+        allow create: if isSignedIn() 
+          && isValidId(conversationId)
+          && isValidId(messageId)
+          && isValidMessage(incoming())
+          && incoming().conversationId == conversationId
+          && incoming().createdAt == request.time
+          && get(/databases/$(database)/documents/conversations/$(conversationId)).data.userId == request.auth.uid;
+          
+        allow update: if false; // Messages are immutable after creation
+        
+        allow delete: if isSignedIn() 
+          && isValidId(conversationId)
+          && isValidId(messageId)
+          && get(/databases/$(database)/documents/conversations/$(conversationId)).data.userId == request.auth.uid;
+      }
+    }
+    
+    // Allow read/write for test connection document
+    match /test/connection {
+      allow read: if true;
+    }
+  }
+}
